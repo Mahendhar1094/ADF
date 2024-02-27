@@ -1,0 +1,112 @@
+{
+	"name": "Parameterized_Dataflow",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Inputcsv_Dataflow",
+						"type": "DatasetReference"
+					},
+					"name": "FACT"
+				},
+				{
+					"dataset": {
+						"referenceName": "Inputcsv_Dataflow",
+						"type": "DatasetReference"
+					},
+					"name": "Dimpatient"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "sink1",
+					"rejectedDataLinkedService": {
+						"referenceName": "patientinfoout",
+						"type": "LinkedServiceReference"
+					}
+				}
+			],
+			"transformations": [
+				{
+					"name": "join1"
+				},
+				{
+					"name": "filter1"
+				},
+				{
+					"name": "filter2"
+				},
+				{
+					"name": "aggregate1"
+				}
+			],
+			"scriptLines": [
+				"parameters{",
+				"     State as string",
+				"}",
+				"source(output(",
+				"          FactTablePK as integer,",
+				"          dimPatientPK as integer,",
+				"          dimPhysicianPK as integer,",
+				"          dimDatePostPK as date,",
+				"          dimDateServicePK as date,",
+				"          dimCPTCodePK as integer,",
+				"          dimPayerPK as integer,",
+				"          dimTransactionPK as integer,",
+				"          dimLocationPK as integer,",
+				"          PatientNumber as integer,",
+				"          dimDiagnosisCodePK as integer,",
+				"          CPTUnits as double,",
+				"          GrossCharge as double,",
+				"          Payment as double,",
+				"          Adjustment as double,",
+				"          AR as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> FACT",
+				"source(output(",
+				"          dimPatientPK as integer,",
+				"          PatientNumber as integer,",
+				"          FirstName as string,",
+				"          LastName as string,",
+				"          Email as string,",
+				"          PatientGender as string,",
+				"          PatientAge as short,",
+				"          City as string,",
+				"          State as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false,",
+				"     partitionBy('hash', 1)) ~> Dimpatient",
+				"FACT, filter1 join(FACT@dimPatientPK == Dimpatient@dimPatientPK,",
+				"     joinType:'inner',",
+				"     matchType:'exact',",
+				"     ignoreSpaces: false,",
+				"     partitionBy('hash', 1),",
+				"     broadcast: 'auto')~> join1",
+				"Dimpatient filter(equals(State,$State),",
+				"     partitionBy('hash', 1)) ~> filter1",
+				"join1 filter(equals(PatientGender,'Male')) ~> filter2",
+				"filter2 aggregate(groupBy(FACT@PatientNumber),",
+				"     Total_No_Of_Visits = sum(GrossCharge)) ~> aggregate1",
+				"aggregate1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['finaltable.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1"
+			]
+		}
+	}
+}

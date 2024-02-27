@@ -1,0 +1,83 @@
+{
+	"name": "Exists_Dataflow",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Inputcsv_Dataflow",
+						"type": "DatasetReference"
+					},
+					"name": "Fact"
+				},
+				{
+					"dataset": {
+						"referenceName": "Inputcsv_Dataflow",
+						"type": "DatasetReference"
+					},
+					"name": "Dimtrancstion"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "sink1"
+				}
+			],
+			"transformations": [
+				{
+					"name": "exists1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          FactTablePK as integer,",
+				"          dimPatientPK as integer,",
+				"          dimPhysicianPK as integer,",
+				"          dimDatePostPK as date,",
+				"          dimDateServicePK as date,",
+				"          dimCPTCodePK as integer,",
+				"          dimPayerPK as integer,",
+				"          dimTransactionPK as integer,",
+				"          dimLocationPK as integer,",
+				"          PatientNumber as integer,",
+				"          dimDiagnosisCodePK as integer,",
+				"          CPTUnits as double,",
+				"          GrossCharge as double,",
+				"          Payment as double,",
+				"          Adjustment as double,",
+				"          AR as double",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> Fact",
+				"source(output(",
+				"          dimTransactionPK as integer,",
+				"          TransactionType as string,",
+				"          Transaction as string,",
+				"          AdjustmentReason as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> Dimtrancstion",
+				"Fact, Dimtrancstion exists(Fact@dimTransactionPK == Dimtrancstion@dimTransactionPK,",
+				"     negate:false,",
+				"     partitionBy('hash', 1),",
+				"     broadcast: 'auto')~> exists1",
+				"exists1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['Exists.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> sink1"
+			]
+		}
+	}
+}

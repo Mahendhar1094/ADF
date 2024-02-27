@@ -1,0 +1,62 @@
+{
+	"name": "Dimpatient",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "PatientInfo",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobStorageLocation",
+				"fileName": "Dimpatient.csv",
+				"folderPath": "Data",
+				"container": "cmircontainer"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": [
+			{
+				"name": "dimPatientPK",
+				"type": "String"
+			},
+			{
+				"name": "PatientNumber",
+				"type": "String"
+			},
+			{
+				"name": "FirstName",
+				"type": "String"
+			},
+			{
+				"name": "LastName",
+				"type": "String"
+			},
+			{
+				"name": "Email",
+				"type": "String"
+			},
+			{
+				"name": "PatientGender",
+				"type": "String"
+			},
+			{
+				"name": "PatientAge",
+				"type": "String"
+			},
+			{
+				"name": "City",
+				"type": "String"
+			},
+			{
+				"name": "State",
+				"type": "String"
+			}
+		]
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

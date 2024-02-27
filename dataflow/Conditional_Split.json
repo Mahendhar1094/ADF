@@ -1,0 +1,97 @@
+{
+	"name": "Conditional_Split",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Inputcsv_Dataflow",
+						"type": "DatasetReference"
+					},
+					"name": "DimPatient"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "malepatient"
+				},
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "Femalepatient"
+				},
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "Others"
+				}
+			],
+			"transformations": [
+				{
+					"name": "GenderSplit"
+				},
+				{
+					"name": "Capitalizecolumn"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          dimPatientPK as integer,",
+				"          PatientNumber as integer,",
+				"          FirstName as string,",
+				"          LastName as string,",
+				"          Email as string,",
+				"          PatientGender as string,",
+				"          PatientAge as short,",
+				"          City as string,",
+				"          State as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> DimPatient",
+				"DimPatient split(equals(PatientGender,'Male'),",
+				"     equals(PatientGender,'Female'),",
+				"     disjoint: false) ~> GenderSplit@(Male, Female, Others)",
+				"GenderSplit@Male derive(FirstName = upper(FirstName),",
+				"          Tenant = substring(Email,instr(Email,'@')+1, 10),",
+				"     partitionBy('hash', 1)) ~> Capitalizecolumn",
+				"Capitalizecolumn sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['Male.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> malepatient",
+				"GenderSplit@Female sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['Female.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> Femalepatient",
+				"GenderSplit@Others sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['Others.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> Others"
+			]
+		}
+	}
+}
