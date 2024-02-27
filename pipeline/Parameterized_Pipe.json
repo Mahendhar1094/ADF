@@ -1,0 +1,70 @@
+{
+	"name": "Parameterized_Pipe",
+	"properties": {
+		"activities": [
+			{
+				"name": "dataflow1",
+				"type": "ExecuteDataFlow",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataflow": {
+						"referenceName": "Parameterized_Dataflow",
+						"type": "DataFlowReference",
+						"parameters": {
+							"State": {
+								"value": "'@{pipeline().parameters.State}'",
+								"type": "Expression"
+							}
+						},
+						"datasetParameters": {
+							"FACT": {
+								"Filename": "FactTable (1).csv"
+							},
+							"Dimpatient": {
+								"Filename": "Dimpatient.csv"
+							},
+							"sink1": {
+								"filename": "outputfile"
+							}
+						}
+					},
+					"compute": {
+						"coreCount": 8,
+						"computeType": "General"
+					},
+					"traceLevel": "Fine"
+				}
+			}
+		],
+		"parameters": {
+			"State": {
+				"type": "string"
+			}
+		},
+		"variables": {
+			"FACT": {
+				"type": "String",
+				"defaultValue": "FactTable (1).csv"
+			},
+			"Dimpatient": {
+				"type": "String",
+				"defaultValue": "Dimpatient.csv"
+			},
+			"Output": {
+				"type": "String",
+				"defaultValue": "Process.csv"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2024-02-26T11:46:32Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

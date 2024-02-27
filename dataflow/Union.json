@@ -1,0 +1,108 @@
+{
+	"name": "Union",
+	"properties": {
+		"type": "MappingDataFlow",
+		"typeProperties": {
+			"sources": [
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "Male"
+				},
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "Female"
+				}
+			],
+			"sinks": [
+				{
+					"dataset": {
+						"referenceName": "Outputcsv",
+						"type": "DatasetReference"
+					},
+					"name": "Patientinfo"
+				}
+			],
+			"transformations": [
+				{
+					"name": "union1"
+				},
+				{
+					"name": "sort1"
+				},
+				{
+					"name": "select1"
+				},
+				{
+					"name": "pivot1"
+				}
+			],
+			"scriptLines": [
+				"source(output(",
+				"          dimPatientPK as integer,",
+				"          PatientNumber as integer,",
+				"          FirstName as string,",
+				"          LastName as string,",
+				"          Email as string,",
+				"          PatientGender as string,",
+				"          PatientAge as short,",
+				"          City as string,",
+				"          State as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> Male",
+				"source(output(",
+				"          dimPatientPK as integer,",
+				"          PatientNumber as integer,",
+				"          FirstName as string,",
+				"          LastName as string,",
+				"          Email as string,",
+				"          PatientGender as string,",
+				"          PatientAge as short,",
+				"          City as string,",
+				"          State as string",
+				"     ),",
+				"     allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     ignoreNoFilesFound: false) ~> Female",
+				"Male, Female union(byName: true,",
+				"     partitionBy('hash', 1))~> union1",
+				"union1 sort(asc(FirstName, false),",
+				"     caseInsensitive: true) ~> sort1",
+				"sort1 select(mapColumn(",
+				"          PatientPK = dimPatientPK,",
+				"          PatientNumber,",
+				"          FirstName,",
+				"          LastName,",
+				"          Email,",
+				"          PatientGender,",
+				"          PatientAge,",
+				"          City,",
+				"          State",
+				"     ),",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true) ~> select1",
+				"select1 pivot(groupBy(PatientGender),",
+				"     pivotBy(PatientAge),",
+				"     {} = count(PatientPK),",
+				"     columnNaming: '$N$V',",
+				"     lateral: true) ~> pivot1",
+				"pivot1 sink(allowSchemaDrift: true,",
+				"     validateSchema: false,",
+				"     partitionFileNames:['Patientinfo.csv'],",
+				"     umask: 0022,",
+				"     preCommands: [],",
+				"     postCommands: [],",
+				"     skipDuplicateMapInputs: true,",
+				"     skipDuplicateMapOutputs: true,",
+				"     partitionBy('hash', 1)) ~> Patientinfo"
+			]
+		}
+	}
+}
