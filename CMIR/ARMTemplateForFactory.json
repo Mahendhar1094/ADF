@@ -1,0 +1,1291 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "CMIR"
+		},
+		"PatientInfo_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'PatientInfo'"
+		},
+		"patientinfoout_accountKey": {
+			"type": "secureString",
+			"metadata": "Secure string for 'accountKey' of 'patientinfoout'"
+		},
+		"AzureBlobStorage1_properties_typeProperties_connectionString_secretName": {
+			"type": "string",
+			"defaultValue": "blob-cmirstorage-connection-string"
+		},
+		"AzureKeyVault1_properties_typeProperties_baseUrl": {
+			"type": "string",
+			"defaultValue": "https://Mahiul.vault.azure.net/"
+		},
+		"patientinfoout_properties_typeProperties_url": {
+			"type": "string",
+			"defaultValue": "https://demouldatalake.dfs.core.windows.net/"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Bulk_Copy')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get_Input_Data",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "Inputcsv",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "For Each File",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get_Input_Data",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get_Input_Data').output.childItems",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Copy_Activity",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobFSWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Inputcsv_copy",
+											"type": "DatasetReference",
+											"parameters": {
+												"Filename": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "Outputcsv",
+											"type": "DatasetReference",
+											"parameters": {
+												"filename": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-21T09:46:44Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Inputcsv')]",
+				"[concat(variables('factoryId'), '/datasets/Inputcsv_copy')]",
+				"[concat(variables('factoryId'), '/datasets/Outputcsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Conditinal_Split')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Conditional_Split",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Conditional_Split",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"DimPatient": {
+										"Filename": {
+											"value": "@variables('DimPatient')",
+											"type": "Expression"
+										}
+									},
+									"malepatient": {
+										"filename": "male.csv"
+									},
+									"Femalepatient": {
+										"filename": "female.csv"
+									},
+									"Others": {
+										"filename": "others.csv"
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"DimPatient": {
+						"type": "String",
+						"defaultValue": "Dimpatient.csv"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-23T10:00:27Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Conditional_Split')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Parameterized_Pipe')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "dataflow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Parameterized_Dataflow",
+								"type": "DataFlowReference",
+								"parameters": {
+									"State": {
+										"value": "'@{pipeline().parameters.State}'",
+										"type": "Expression"
+									}
+								},
+								"datasetParameters": {
+									"FACT": {
+										"Filename": "FactTable (1).csv"
+									},
+									"Dimpatient": {
+										"Filename": "Dimpatient.csv"
+									},
+									"sink1": {
+										"filename": "outputfile"
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"State": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"FACT": {
+						"type": "String",
+						"defaultValue": "FactTable (1).csv"
+					},
+					"Dimpatient": {
+						"type": "String",
+						"defaultValue": "Dimpatient.csv"
+					},
+					"Output": {
+						"type": "String",
+						"defaultValue": "Process.csv"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-26T11:46:32Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Parameterized_Dataflow')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/jsonreading')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata1",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "Inputcsv",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Metadata1').output.childItems",
+								"type": "Expression"
+							},
+							"isSequential": true,
+							"activities": [
+								{
+									"name": "Set variable1",
+									"type": "SetVariable",
+									"dependsOn": [],
+									"policy": {
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"variableName": "Filename",
+										"value": {
+											"value": "@item().name",
+											"type": "Expression"
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"Filename": {
+						"type": "String"
+					}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Inputcsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Union",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Union",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"Male": {
+										"filename": "Male.csv"
+									},
+									"Female": {
+										"filename": "Female.csv"
+									},
+									"Patientinfo": {
+										"filename": "Patientinfo.csv"
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-23T13:52:24Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/dataflows/Union')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Dimpatient')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "PatientInfo",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": "Dimpatient.csv",
+						"folderPath": "Data",
+						"container": "cmircontainer"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": [
+					{
+						"name": "dimPatientPK",
+						"type": "String"
+					},
+					{
+						"name": "PatientNumber",
+						"type": "String"
+					},
+					{
+						"name": "FirstName",
+						"type": "String"
+					},
+					{
+						"name": "LastName",
+						"type": "String"
+					},
+					{
+						"name": "Email",
+						"type": "String"
+					},
+					{
+						"name": "PatientGender",
+						"type": "String"
+					},
+					{
+						"name": "PatientAge",
+						"type": "String"
+					},
+					{
+						"name": "City",
+						"type": "String"
+					},
+					{
+						"name": "State",
+						"type": "String"
+					}
+				]
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/PatientInfo')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Inputcsv')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "PatientInfo",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"folderPath": "Data",
+						"container": "cmircontainer"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/PatientInfo')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Inputcsv_Dataflow')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "PatientInfo",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"Filename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@dataset().Filename",
+							"type": "Expression"
+						},
+						"folderPath": "Data",
+						"container": "cmircontainer"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/PatientInfo')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Inputcsv_copy')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "PatientInfo",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"Filename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@dataset().Filename",
+							"type": "Expression"
+						},
+						"folderPath": "Data",
+						"container": "cmircontainer"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/PatientInfo')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Outputcsv')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "patientinfoout",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"filename": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobFSLocation",
+						"fileName": {
+							"value": "@dataset().filename",
+							"type": "Expression"
+						},
+						"folderPath": "output",
+						"fileSystem": "patientinfo"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/patientinfoout')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureBlobStorage1')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"connectionString": {
+						"type": "AzureKeyVaultSecret",
+						"store": {
+							"referenceName": "AzureKeyVault1",
+							"type": "LinkedServiceReference"
+						},
+						"secretName": "[parameters('AzureBlobStorage1_properties_typeProperties_connectionString_secretName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/AzureKeyVault1')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureKeyVault1')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureKeyVault",
+				"typeProperties": {
+					"baseUrl": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PatientInfo')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"connectionString": "[parameters('PatientInfo_connectionString')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/patientinfoout')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobFS",
+				"typeProperties": {
+					"url": "[parameters('patientinfoout_properties_typeProperties_url')]",
+					"accountKey": {
+						"type": "SecureString",
+						"value": "[parameters('patientinfoout_accountKey')]"
+					}
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Conditional_Split')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Inputcsv_Dataflow",
+								"type": "DatasetReference"
+							},
+							"name": "DimPatient"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "malepatient"
+						},
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "Femalepatient"
+						},
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "Others"
+						}
+					],
+					"transformations": [
+						{
+							"name": "GenderSplit"
+						},
+						{
+							"name": "Capitalizecolumn"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          dimPatientPK as integer,",
+						"          PatientNumber as integer,",
+						"          FirstName as string,",
+						"          LastName as string,",
+						"          Email as string,",
+						"          PatientGender as string,",
+						"          PatientAge as short,",
+						"          City as string,",
+						"          State as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> DimPatient",
+						"DimPatient split(equals(PatientGender,'Male'),",
+						"     equals(PatientGender,'Female'),",
+						"     disjoint: false) ~> GenderSplit@(Male, Female, Others)",
+						"GenderSplit@Male derive(FirstName = upper(FirstName),",
+						"          Tenant = substring(Email,instr(Email,'@')+1, 10),",
+						"     partitionBy('hash', 1)) ~> Capitalizecolumn",
+						"Capitalizecolumn sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['Male.csv'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> malepatient",
+						"GenderSplit@Female sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['Female.csv'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> Femalepatient",
+						"GenderSplit@Others sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['Others.csv'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> Others"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Inputcsv_Dataflow')]",
+				"[concat(variables('factoryId'), '/datasets/Outputcsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Exists_Dataflow')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Inputcsv_Dataflow",
+								"type": "DatasetReference"
+							},
+							"name": "Fact"
+						},
+						{
+							"dataset": {
+								"referenceName": "Inputcsv_Dataflow",
+								"type": "DatasetReference"
+							},
+							"name": "Dimtrancstion"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "exists1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          FactTablePK as integer,",
+						"          dimPatientPK as integer,",
+						"          dimPhysicianPK as integer,",
+						"          dimDatePostPK as date,",
+						"          dimDateServicePK as date,",
+						"          dimCPTCodePK as integer,",
+						"          dimPayerPK as integer,",
+						"          dimTransactionPK as integer,",
+						"          dimLocationPK as integer,",
+						"          PatientNumber as integer,",
+						"          dimDiagnosisCodePK as integer,",
+						"          CPTUnits as double,",
+						"          GrossCharge as double,",
+						"          Payment as double,",
+						"          Adjustment as double,",
+						"          AR as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> Fact",
+						"source(output(",
+						"          dimTransactionPK as integer,",
+						"          TransactionType as string,",
+						"          Transaction as string,",
+						"          AdjustmentReason as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> Dimtrancstion",
+						"Fact, Dimtrancstion exists(Fact@dimTransactionPK == Dimtrancstion@dimTransactionPK,",
+						"     negate:false,",
+						"     partitionBy('hash', 1),",
+						"     broadcast: 'auto')~> exists1",
+						"exists1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['Exists.csv'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Inputcsv_Dataflow')]",
+				"[concat(variables('factoryId'), '/datasets/Outputcsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Parameterized_Dataflow')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Inputcsv_Dataflow",
+								"type": "DatasetReference"
+							},
+							"name": "FACT"
+						},
+						{
+							"dataset": {
+								"referenceName": "Inputcsv_Dataflow",
+								"type": "DatasetReference"
+							},
+							"name": "Dimpatient"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "sink1",
+							"rejectedDataLinkedService": {
+								"referenceName": "patientinfoout",
+								"type": "LinkedServiceReference"
+							}
+						}
+					],
+					"transformations": [
+						{
+							"name": "join1"
+						},
+						{
+							"name": "filter1"
+						},
+						{
+							"name": "filter2"
+						},
+						{
+							"name": "aggregate1"
+						}
+					],
+					"scriptLines": [
+						"parameters{",
+						"     State as string",
+						"}",
+						"source(output(",
+						"          FactTablePK as integer,",
+						"          dimPatientPK as integer,",
+						"          dimPhysicianPK as integer,",
+						"          dimDatePostPK as date,",
+						"          dimDateServicePK as date,",
+						"          dimCPTCodePK as integer,",
+						"          dimPayerPK as integer,",
+						"          dimTransactionPK as integer,",
+						"          dimLocationPK as integer,",
+						"          PatientNumber as integer,",
+						"          dimDiagnosisCodePK as integer,",
+						"          CPTUnits as double,",
+						"          GrossCharge as double,",
+						"          Payment as double,",
+						"          Adjustment as double,",
+						"          AR as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> FACT",
+						"source(output(",
+						"          dimPatientPK as integer,",
+						"          PatientNumber as integer,",
+						"          FirstName as string,",
+						"          LastName as string,",
+						"          Email as string,",
+						"          PatientGender as string,",
+						"          PatientAge as short,",
+						"          City as string,",
+						"          State as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false,",
+						"     partitionBy('hash', 1)) ~> Dimpatient",
+						"FACT, filter1 join(FACT@dimPatientPK == Dimpatient@dimPatientPK,",
+						"     joinType:'inner',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     partitionBy('hash', 1),",
+						"     broadcast: 'auto')~> join1",
+						"Dimpatient filter(equals(State,$State),",
+						"     partitionBy('hash', 1)) ~> filter1",
+						"join1 filter(equals(PatientGender,'Male')) ~> filter2",
+						"filter2 aggregate(groupBy(FACT@PatientNumber),",
+						"     Total_No_Of_Visits = sum(GrossCharge)) ~> aggregate1",
+						"aggregate1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['finaltable.csv'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Inputcsv_Dataflow')]",
+				"[concat(variables('factoryId'), '/datasets/Outputcsv')]",
+				"[concat(variables('factoryId'), '/linkedServices/patientinfoout')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Union')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "Male"
+						},
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "Female"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "Patientinfo"
+						}
+					],
+					"transformations": [
+						{
+							"name": "union1"
+						},
+						{
+							"name": "sort1"
+						},
+						{
+							"name": "select1"
+						},
+						{
+							"name": "pivot1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          dimPatientPK as integer,",
+						"          PatientNumber as integer,",
+						"          FirstName as string,",
+						"          LastName as string,",
+						"          Email as string,",
+						"          PatientGender as string,",
+						"          PatientAge as short,",
+						"          City as string,",
+						"          State as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> Male",
+						"source(output(",
+						"          dimPatientPK as integer,",
+						"          PatientNumber as integer,",
+						"          FirstName as string,",
+						"          LastName as string,",
+						"          Email as string,",
+						"          PatientGender as string,",
+						"          PatientAge as short,",
+						"          City as string,",
+						"          State as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> Female",
+						"Male, Female union(byName: true,",
+						"     partitionBy('hash', 1))~> union1",
+						"union1 sort(asc(FirstName, false),",
+						"     caseInsensitive: true) ~> sort1",
+						"sort1 select(mapColumn(",
+						"          PatientPK = dimPatientPK,",
+						"          PatientNumber,",
+						"          FirstName,",
+						"          LastName,",
+						"          Email,",
+						"          PatientGender,",
+						"          PatientAge,",
+						"          City,",
+						"          State",
+						"     ),",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true) ~> select1",
+						"select1 pivot(groupBy(PatientGender),",
+						"     pivotBy(PatientAge),",
+						"     {} = count(PatientPK),",
+						"     columnNaming: '$N$V',",
+						"     lateral: true) ~> pivot1",
+						"pivot1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['Patientinfo.csv'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> Patientinfo"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Outputcsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/dataflow1')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "MappingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"dataset": {
+								"referenceName": "Inputcsv_Dataflow",
+								"type": "DatasetReference"
+							},
+							"name": "Fact"
+						},
+						{
+							"dataset": {
+								"referenceName": "Inputcsv_Dataflow",
+								"type": "DatasetReference"
+							},
+							"name": "Dimpatient"
+						}
+					],
+					"sinks": [
+						{
+							"dataset": {
+								"referenceName": "Outputcsv",
+								"type": "DatasetReference"
+							},
+							"name": "sink1"
+						}
+					],
+					"transformations": [
+						{
+							"name": "Merge"
+						},
+						{
+							"name": "window1"
+						},
+						{
+							"name": "alterRow1"
+						}
+					],
+					"scriptLines": [
+						"source(output(",
+						"          FactTablePK as integer,",
+						"          dimPatientPK as integer,",
+						"          dimPhysicianPK as integer,",
+						"          dimDatePostPK as date,",
+						"          dimDateServicePK as date,",
+						"          dimCPTCodePK as integer,",
+						"          dimPayerPK as integer,",
+						"          dimTransactionPK as integer,",
+						"          dimLocationPK as integer,",
+						"          PatientNumber as integer,",
+						"          dimDiagnosisCodePK as integer,",
+						"          CPTUnits as double,",
+						"          GrossCharge as double,",
+						"          Payment as double,",
+						"          Adjustment as double,",
+						"          AR as double",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> Fact",
+						"source(output(",
+						"          dimPatientPK as integer,",
+						"          PatientNumber as integer,",
+						"          FirstName as string,",
+						"          LastName as string,",
+						"          Email as string,",
+						"          PatientGender as string,",
+						"          PatientAge as short,",
+						"          City as string,",
+						"          State as string",
+						"     ),",
+						"     allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     ignoreNoFilesFound: false) ~> Dimpatient",
+						"Fact, Dimpatient join(Fact@dimPatientPK == Dimpatient@dimPatientPK,",
+						"     joinType:'inner',",
+						"     matchType:'exact',",
+						"     ignoreSpaces: false,",
+						"     broadcast: 'auto')~> Merge",
+						"Merge window(over(PatientGender),",
+						"     asc(PatientGender, true),",
+						"     Patientcount = count(Fact@PatientNumber)) ~> window1",
+						"window1 alterRow(deleteIf(equals(PatientGender,'Male'))) ~> alterRow1",
+						"alterRow1 sink(allowSchemaDrift: true,",
+						"     validateSchema: false,",
+						"     partitionFileNames:['Alter.csv'],",
+						"     umask: 0022,",
+						"     preCommands: [],",
+						"     postCommands: [],",
+						"     skipDuplicateMapInputs: true,",
+						"     skipDuplicateMapOutputs: true,",
+						"     partitionBy('hash', 1)) ~> sink1"
+					]
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Inputcsv_Dataflow')]",
+				"[concat(variables('factoryId'), '/datasets/Outputcsv')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/powerquery1')]",
+			"type": "Microsoft.DataFactory/factories/dataflows",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"type": "WranglingDataFlow",
+				"typeProperties": {
+					"sources": [
+						{
+							"name": "Dimpatient",
+							"script": "source(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tinferDriftedColumnTypes: true,\n\tignoreNoFilesFound: false,\n\tpartitionBy('hash', 1)) ~> Dimpatient",
+							"dataset": {
+								"referenceName": "Dimpatient",
+								"type": "DatasetReference"
+							}
+						}
+					],
+					"script": "section Section1;\r\nshared Dimpatient = let AdfDoc = AzureStorage.DataLakeContents(\"https://demouldatalake.dfs.core.windows.net/patientinfo/output/Dimpatient.csv\") in  AdfDoc;\r\nshared UserQuery = let Source = #\"Dimpatient\" in Source;\r\n",
+					"documentLocale": "en-us"
+				}
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Dimpatient')]"
+			]
+		}
+	]
+}
