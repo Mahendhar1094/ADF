@@ -85,7 +85,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"message": {
-						"value": "activity('Get Metadata1').output.pipelineReturnValue.errormessage",
+						"value": "activity('Get Metadata1').output.pipelineReturnValue.error.message",
 						"type": "Expression"
 					},
 					"errorCode": "2200"
