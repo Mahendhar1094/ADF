@@ -1,0 +1,144 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "CMIR"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/Parameterized_Pipe')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "dataflow1",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Parameterized_Dataflow",
+								"type": "DataFlowReference",
+								"parameters": {
+									"State": {
+										"value": "'@{pipeline().parameters.State}'",
+										"type": "Expression"
+									}
+								},
+								"datasetParameters": {
+									"FACT": {
+										"Filename": "FactTable (1).csv"
+									},
+									"Dimpatient": {
+										"Filename": "Dimpatient.csv"
+									},
+									"sink1": {
+										"filename": "outputfile"
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"State": {
+						"type": "string"
+					}
+				},
+				"variables": {
+					"FACT": {
+						"type": "String",
+						"defaultValue": "FactTable (1).csv"
+					},
+					"Dimpatient": {
+						"type": "String",
+						"defaultValue": "Dimpatient.csv"
+					},
+					"Output": {
+						"type": "String",
+						"defaultValue": "Process.csv"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-26T11:46:32Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Union",
+						"type": "ExecuteDataFlow",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataflow": {
+								"referenceName": "Union",
+								"type": "DataFlowReference",
+								"parameters": {},
+								"datasetParameters": {
+									"Male": {
+										"filename": "Male.csv"
+									},
+									"Female": {
+										"filename": "Female.csv"
+									},
+									"Patientinfo": {
+										"filename": "Patientinfo.csv"
+									}
+								}
+							},
+							"staging": {},
+							"compute": {
+								"coreCount": 8,
+								"computeType": "General"
+							},
+							"traceLevel": "Fine"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2024-02-23T13:52:24Z"
+			},
+			"dependsOn": []
+		}
+	]
+}

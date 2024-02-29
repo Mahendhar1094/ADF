@@ -7,6 +7,10 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "CMIR"
 		},
+		"BlobStorage2_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'BlobStorage2'"
+		},
 		"PatientInfo_connectionString": {
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'PatientInfo'"
@@ -124,6 +128,21 @@
 											}
 										},
 										"enableStaging": false,
+										"enableSkipIncompatibleRow": true,
+										"logSettings": {
+											"enableCopyActivityLog": true,
+											"copyActivityLogSettings": {
+												"logLevel": "Warning",
+												"enableReliableLogging": true
+											},
+											"logLocationSettings": {
+												"linkedServiceName": {
+													"referenceName": "PatientInfo",
+													"type": "LinkedServiceReference"
+												},
+												"path": "cmircontainer/Data"
+											}
+										},
 										"translator": {
 											"type": "TabularTranslator",
 											"typeConversion": true,
@@ -171,7 +190,8 @@
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/Inputcsv')]",
 				"[concat(variables('factoryId'), '/datasets/Inputcsv_copy')]",
-				"[concat(variables('factoryId'), '/datasets/Outputcsv')]"
+				"[concat(variables('factoryId'), '/datasets/Outputcsv')]",
+				"[concat(variables('factoryId'), '/linkedServices/PatientInfo')]"
 			]
 		},
 		{
@@ -238,6 +258,146 @@
 			},
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/dataflows/Conditional_Split')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/Data to new account')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Get Metadata1",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "Inputcsv",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"fieldList": [
+								"childItems"
+							],
+							"storeSettings": {
+								"type": "AzureBlobStorageReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Get Metadata1').output.childItems",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "Copy data1",
+									"type": "Copy",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"source": {
+											"type": "DelimitedTextSource",
+											"storeSettings": {
+												"type": "AzureBlobStorageReadSettings",
+												"recursive": true,
+												"enablePartitionDiscovery": false
+											},
+											"formatSettings": {
+												"type": "DelimitedTextReadSettings"
+											}
+										},
+										"sink": {
+											"type": "DelimitedTextSink",
+											"storeSettings": {
+												"type": "AzureBlobStorageWriteSettings"
+											},
+											"formatSettings": {
+												"type": "DelimitedTextWriteSettings",
+												"quoteAllText": true,
+												"fileExtension": ".txt"
+											}
+										},
+										"enableStaging": false,
+										"translator": {
+											"type": "TabularTranslator",
+											"typeConversion": true,
+											"typeConversionSettings": {
+												"allowDataTruncation": true,
+												"treatBooleanAsNumber": false
+											}
+										}
+									},
+									"inputs": [
+										{
+											"referenceName": "Inputcsv_copy",
+											"type": "DatasetReference",
+											"parameters": {
+												"Filename": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									],
+									"outputs": [
+										{
+											"referenceName": "powerquery",
+											"type": "DatasetReference",
+											"parameters": {
+												"FileName": {
+													"value": "@item().name",
+													"type": "Expression"
+												}
+											}
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/Inputcsv')]",
+				"[concat(variables('factoryId'), '/datasets/Inputcsv_copy')]",
+				"[concat(variables('factoryId'), '/datasets/powerquery')]"
 			]
 		},
 		{
@@ -392,6 +552,26 @@
 									}
 								}
 							]
+						}
+					},
+					{
+						"name": "Fail1",
+						"type": "Fail",
+						"dependsOn": [
+							{
+								"activity": "Get Metadata1",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"message": {
+								"value": "activity('Get Metadata1').output.pipelineReturnValue.error.message",
+								"type": "Expression"
+							},
+							"errorCode": "2200"
 						}
 					}
 				],
@@ -669,6 +849,43 @@
 			]
 		},
 		{
+			"name": "[concat(parameters('factoryName'), '/powerquery')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "BlobStorage2",
+					"type": "LinkedServiceReference"
+				},
+				"parameters": {
+					"FileName": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"type": "DelimitedText",
+				"typeProperties": {
+					"location": {
+						"type": "AzureBlobStorageLocation",
+						"fileName": {
+							"value": "@dataset().FileName",
+							"type": "Expression"
+						},
+						"folderPath": "output",
+						"container": "powerquery"
+					},
+					"columnDelimiter": ",",
+					"escapeChar": "\\",
+					"firstRowAsHeader": true,
+					"quoteChar": "\""
+				},
+				"schema": []
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/linkedServices/BlobStorage2')]"
+			]
+		},
+		{
 			"name": "[concat(parameters('factoryName'), '/AzureBlobStorage1')]",
 			"type": "Microsoft.DataFactory/factories/linkedServices",
 			"apiVersion": "2018-06-01",
@@ -699,6 +916,19 @@
 				"type": "AzureKeyVault",
 				"typeProperties": {
 					"baseUrl": "[parameters('AzureKeyVault1_properties_typeProperties_baseUrl')]"
+				}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/BlobStorage2')]",
+			"type": "Microsoft.DataFactory/factories/linkedServices",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"annotations": [],
+				"type": "AzureBlobStorage",
+				"typeProperties": {
+					"connectionString": "[parameters('BlobStorage2_connectionString')]"
 				}
 			},
 			"dependsOn": []
@@ -1260,31 +1490,6 @@
 			"dependsOn": [
 				"[concat(variables('factoryId'), '/datasets/Inputcsv_Dataflow')]",
 				"[concat(variables('factoryId'), '/datasets/Outputcsv')]"
-			]
-		},
-		{
-			"name": "[concat(parameters('factoryName'), '/powerquery1')]",
-			"type": "Microsoft.DataFactory/factories/dataflows",
-			"apiVersion": "2018-06-01",
-			"properties": {
-				"type": "WranglingDataFlow",
-				"typeProperties": {
-					"sources": [
-						{
-							"name": "Dimpatient",
-							"script": "source(allowSchemaDrift: true,\n\tvalidateSchema: false,\n\tinferDriftedColumnTypes: true,\n\tignoreNoFilesFound: false,\n\tpartitionBy('hash', 1)) ~> Dimpatient",
-							"dataset": {
-								"referenceName": "Dimpatient",
-								"type": "DatasetReference"
-							}
-						}
-					],
-					"script": "section Section1;\r\nshared Dimpatient = let AdfDoc = AzureStorage.DataLakeContents(\"https://demouldatalake.dfs.core.windows.net/patientinfo/output/Dimpatient.csv\") in  AdfDoc;\r\nshared UserQuery = let Source = #\"Dimpatient\" in Source;\r\n",
-					"documentLocale": "en-us"
-				}
-			},
-			"dependsOn": [
-				"[concat(variables('factoryId'), '/datasets/Dimpatient')]"
 			]
 		}
 	]

@@ -5,6 +5,9 @@
 		"factoryName": {
 			"value": "CMIR"
 		},
+		"BlobStorage2_connectionString": {
+			"value": ""
+		},
 		"PatientInfo_connectionString": {
 			"value": ""
 		},
