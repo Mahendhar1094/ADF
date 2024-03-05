@@ -7,6 +7,10 @@
 			"metadata": "Data Factory name",
 			"defaultValue": "CMIR"
 		},
+		"BlobStorage2_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'BlobStorage2'"
+		},
 		"PatientInfo_connectionString": {
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'PatientInfo'"
@@ -54,6 +58,9 @@
 					"factoryName": {
 						"value": "[parameters('factoryName')]"
 					},
+					"BlobStorage2_connectionString": {
+						"value": "[parameters('BlobStorage2_connectionString')]"
+					},
 					"PatientInfo_connectionString": {
 						"value": "[parameters('PatientInfo_connectionString')]"
 					},
@@ -72,6 +79,26 @@
 				}
 			},
 			"dependsOn": []
+		},
+		{
+			"name": "CMIR_ArmTemplate_1",
+			"type": "Microsoft.Resources/deployments",
+			"apiVersion": "2018-02-01",
+			"properties": {
+				"mode": "incremental",
+				"templateLink": {
+					"uri": "[concat(parameters('containerUri'), '/ArmTemplate_1.json', parameters('containerSasToken'))]",
+					"contentVersion": "1.0.0.0"
+				},
+				"parameters": {
+					"factoryName": {
+						"value": "[parameters('factoryName')]"
+					}
+				}
+			},
+			"dependsOn": [
+				"[resourceId('Microsoft.Resources/deployments', 'CMIR_ArmTemplate_0')]"
+			]
 		}
 	]
 }
