@@ -15,6 +15,10 @@
 			"type": "secureString",
 			"metadata": "Secure string for 'connectionString' of 'PatientInfo'"
 		},
+		"SQLLinkedservice_connectionString": {
+			"type": "secureString",
+			"metadata": "Secure string for 'connectionString' of 'SQLLinkedservice'"
+		},
 		"patientinfoout_accountKey": {
 			"type": "secureString",
 			"metadata": "Secure string for 'accountKey' of 'patientinfoout'"
@@ -63,6 +67,9 @@
 					},
 					"PatientInfo_connectionString": {
 						"value": "[parameters('PatientInfo_connectionString')]"
+					},
+					"SQLLinkedservice_connectionString": {
+						"value": "[parameters('SQLLinkedservice_connectionString')]"
 					},
 					"patientinfoout_accountKey": {
 						"value": "[parameters('patientinfoout_accountKey')]"

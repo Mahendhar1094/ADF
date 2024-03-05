@@ -11,6 +11,9 @@
 		"PatientInfo_connectionString": {
 			"value": ""
 		},
+		"SQLLinkedservice_connectionString": {
+			"value": ""
+		},
 		"patientinfoout_accountKey": {
 			"value": ""
 		},
