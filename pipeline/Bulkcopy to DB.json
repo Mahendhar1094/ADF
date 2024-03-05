@@ -63,11 +63,11 @@
 							"userProperties": [
 								{
 									"name": "Source",
-									"value": "cmircontainer/Data/@{item().name}"
+									"value": "@{item().name}"
 								},
 								{
 									"name": "Destination",
-									"value": "dbo..@{'replace(@item().name,''.csv'','''')'}"
+									"value": "dbo.@{replace(item().name,'.csv','')}"
 								}
 							],
 							"typeProperties": {
@@ -115,7 +115,7 @@
 									"type": "DatasetReference",
 									"parameters": {
 										"TableName": {
-											"value": "replace(@item().name,'.csv','')",
+											"value": "@replace(item().name,'.csv','')",
 											"type": "Expression"
 										}
 									}
